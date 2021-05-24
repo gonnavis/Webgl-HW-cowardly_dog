@@ -1,0 +1,1510 @@
+<script src=lib.js></script>
+<script src=math.js></script>
+<script src=matrix.js></script>
+<script src=geometry.js></script>
+<script src=implicitSurface.js></script>
+
+<body bgcolor=white text=white link=white alink=white vlink=white>
+  
+  <audio id="bgMusic">
+    <source = src="bounce.wav" type="audio/ogg">
+    <source = src="bounce.wav" type="audio/mp3">
+  </audio>
+  <audio id="bgMusic2">
+    <source = src="scream.mp3" type="audio/ogg">
+    <source = src="scream.mp3" type="audio/mp3">
+  </audio>
+  <audio id="bgMusic3">
+    <source = src="squash.wav" type="audio/ogg">
+    <source = src="squash.wav" type="audio/mp3">
+  </audio>
+<center>
+<font color=grey size = 5px>Rubber Toy</font><br>
+<font color=black>use 'A' and 'D' to rotate, and use mouse to drag -</font>
+<font color=red>loading may takes about 10 seconds......</font>
+<p>
+<canvas id='canvas1' width=800 height=800></canvas>
+</center>
+
+</body>
+
+<style type="text/css">html,body{height:100%;overflow:hidden;}</style>
+<!!-------- VERTEX SHADER -------->
+
+<script id='my_vertex_shader' type='x-shader/x-vertex'>
+   uniform   float uTime, uoffset_x,uoffset_y, uoriginal_x, uoriginal_y, ucurrent_x, ucurrent_y, uroffset_x, uroffset_y, udraggable, ubounceable;
+   uniform   mat4  uMatrix, uInvMatrix, uCamera;
+
+   uniform   float uBlobby; // IS THIS A BLOBBY OBJECT?
+   uniform   mat4  uMatrices[64], uInvMatrices[64];
+   uniform   vec3  uBlobColor[64];
+
+   attribute vec3  aPos, aNor, aWts0, aWts1;
+
+   varying   vec3  vPos, vNor, vRGB, tPos;
+   varying   float vWeights[6];
+
+   void main() {
+
+      for (int i = 0 ; i < 3 ; i++) {
+         vWeights[i  ] = aWts0[i];
+         vWeights[3+i] = aWts1[i];
+      }
+      tPos=aPos;
+      vec4 apos = vec4(aPos, 1.);
+      vec4 anor = vec4(aNor, 0.);
+      vec4 pos = apos;
+      vec4 nor = anor;
+
+      // IF THIS IS A BLOBBY OBJECT
+
+      if (uBlobby > 0.) {
+
+         // BLEND TOGETHER WEIGHTED POSITIONS, NORMALS
+         // AND COLORS FROM COMPONENT OBJECTS
+
+         pos  = vec4(0.);
+         nor  = vec4(0.);
+	 vRGB = vec3(0.);
+         for (int i = 0 ; i < 6 ; i++)
+	    if (vWeights[i] > 0.) {
+               int   n = int(vWeights[i]);
+               float t = mod(vWeights[i], 1.);
+               pos  += t * (uMatrices[n] * apos);
+               nor  += t * (anor * uInvMatrices[n]);
+	       vRGB += t * uBlobColor[n];
+            }
+      }
+      pos = uCamera * uMatrix * pos;
+      nor = nor * uInvMatrix;
+
+      //###### drag ##########
+      float eps=40.;
+      float eps2=5.;
+      float offset = min(.5,uoffset_x * uoffset_y / (distance(uoriginal_x * eps ,pos.x * eps )+distance(uoriginal_y * eps , pos.y * eps)));
+      float offsetx = min(5.5,uoffset_x  / (distance(uoriginal_x * eps ,pos.x * eps )+distance(uoriginal_y * eps , pos.y * eps)));
+      float offsety = min(5.5,uoffset_y / (distance(uoriginal_x * eps ,pos.x * eps )+distance(uoriginal_y * eps , pos.y * eps)));
+      if(!(uoffset_x==0. && uoffset_y==0.) && udraggable!=0.){
+          pos.x+=offsetx;
+          pos.y+=offsety;
+          //pos.z-=offsetx+offsety;
+          
+      }
+      //#### bounce #########
+      if(ubounceable!=0.){
+         pos.x+=uroffset_x * (distance(uoriginal_x * eps2 ,pos.x * eps2 )+distance(uoriginal_y * eps2 , pos.y * eps2));
+         pos.y+=uroffset_y * (distance(uoriginal_x * eps2 ,pos.x * eps2 )+distance(uoriginal_y * eps2 , pos.y * eps2));
+      }
+  
+      vPos = pos.xyz;
+      vNor = nor.xyz;
+
+      gl_Position = pos;
+   }
+</script>
+
+<!!-------- FRAGMENT SHADER -------->
+
+<script id='my_fragment_shader' type='x-shader/x-fragment'>
+
+ uniform float uTime;         // TIME, IN SECONDS
+ uniform float uBlobby;       // FLAG IF IS A BLOBBY OBJECT
+ uniform float upink2;
+ varying vec3  vPos, vNor, tPos;    // POSITION AND NORMAL
+ varying float vWeights[6];   // BLOBBY WEIGHTS
+ varying vec3  vRGB;          // BLOBBY COLORS
+
+ float fl = 3.0;              // CAMERA FOCAL LENGTH
+
+ const int nl = 2;            // NUMBER OF LIGHTS
+ 
+ uniform vec3 uLDir[nl], uLCol[nl], uAmbient, uDiffuse;
+ uniform vec4 uSpecular;
+
+ void main() {
+    vec3 N = normalize(vNor);
+    vec3 ambient, diffuse;
+
+    // IF THIS IS A BLOBBY OBJECT
+
+    if (uBlobby > 0.) {
+       diffuse = vRGB;
+       ambient = 0.2 * diffuse;
+    }
+    else {
+       diffuse = uDiffuse;
+       ambient = uAmbient;
+    }
+
+    vec3 color = ambient;
+    for (int n = 0 ; n < nl ; n++) {
+       vec3 R = 2. * dot(uLDir[n], N) * N - uLDir[n];
+       color += uLCol[n] * (
+                 diffuse * max(0., dot(uLDir[n], N))
+               + uSpecular.rgb * pow(max(0., R.z), uSpecular.w)
+       );
+    }
+    if(upink2==1.){
+       color+=noise(1.*vec3(tPos.x,0,0))/2.;
+    }
+    
+    gl_FragColor = vec4(sqrt(color), 1.0);
+ }
+</script>
+
+<script>
+
+let vs = my_vertex_shader.innerHTML,
+    fs = my_fragment_shader.innerHTML;
+    fs = fs.substring(1, fs.length);
+
+materials['black'  ] = { ambient: [.0 ,.0 ,.0 ], diffuse: [0  ,0  ,0  ], specular: [.9,.9,.9,10] };
+materials['black2'  ] = { ambient: [.0 ,.0 ,.0 ], diffuse: [0  ,0  ,0  ], specular: [.9,.9,.9,0] };
+materials['blue'   ] = { ambient: [.0 ,.0 ,.2 ], diffuse: [0  ,0  ,1  ], specular: [.9,.9,.9,10] };
+materials['brass'  ] = { ambient: [.03,.02,.01], diffuse: [.03,.02,.01], specular: [.9,.6,.3,10] };
+materials['cyan'   ] = { ambient: [.0 ,.15,.15], diffuse: [0  ,.07,.07], specular: [.0,.7,.7,10] };
+materials['green'  ] = { ambient: [.0 ,.2 ,.0 ], diffuse: [0  ,1  ,0  ], specular: [.9,.9,.9,10] };
+materials['red'    ] = { ambient: [.2 ,.0 ,.0 ], diffuse: [1  ,0  ,0  ], specular: [.9,.9,.9,10] };
+materials['white'  ] = { ambient: [.2 ,.2 ,.2 ], diffuse: [1  ,1  ,1  ], specular: [.9,.9,.9,10] };
+materials['yellow' ] = { ambient: [.2 ,.2 ,.0 ], diffuse: [1  ,1  ,0  ], specular: [.9,.9,.9,10] };
+materials['pink'    ] = { ambient: [.5 ,.0 ,.7 ], diffuse: [1  ,0  ,0.6  ], specular: [.9,.9,.9,10] };
+materials['pink2'    ] = { ambient: [.2,.0,.3], diffuse: [1,0,.4], specular: [.9,.9,.9,10] };
+materials['skin'    ] = { ambient: [1 ,0.8 ,0.7 ], diffuse: [0.8 ,0.4 ,0.3 ], specular: [.9,.9,.9,10] };
+materials['teeth' ] = { ambient: [.2 ,.05 ,.0 ], diffuse: [1  ,1  ,0  ], specular: [.9,.9,.9,10] };
+materials['grey'  ] = { ambient: [.2,.2,.2], diffuse: [0.5,0.5,0.5], specular: [.9,.9,.9,10] };
+let fl = 3;                                                          // CAMERA FOCAL LENGTH
+let startTime = Date.now();
+let release_time=-10;
+let hammer_time=-10;
+let squeeze_time=-10;
+let isAnimating = 0;
+function animate(gl) {
+
+   let time = (Date.now() - startTime) / 1000;
+   setUniform('1f', 'uTime', time);                                  // SET GPU TIME
+   setUniform('1f', 'udraggable', 1);
+   let r3 = Math.sqrt(1/3);
+   setUniform('3fv', 'uLDir', [r3,r3,r3, -r3,-r3,-r3]);              // SET GPU LIGHTS
+   setUniform('3fv', 'uLCol', [.6,.8,1, .4,.3,.2]);
+
+   setUniform('Matrix4fv', 'uCamera', false, matrix_perspective(3)); // SET GPU CAMERA
+
+   // DRAW CONTROL WIDGETS
+   setUniform('1f', 'udraggable', 0);
+   setUniform('1f', 'ubounceable', 0);
+   for (let n = 0 ; n < widgetValue.length ; n++) {
+   
+      let p = widgetPos[n];
+
+      switch (widgetType[n]) {
+      
+      case 'slider2':
+
+         M.save();
+            M.save();
+               M.translate(0.015,0.33,0.01);
+               M.translate(p[0],p[1],0);
+               M.scale(0.02);
+               M.scale(1.1,0.2,3.9);
+               drawMesh(cubeMesh, 'brass');
+            M.restore();
+            M.save();
+               M.translate(0.015,0.33,0.01);
+               M.translate(p[0],p[1],0);
+               M.rotateZ(Math.PI/2);
+               M.scale(0.02);
+               M.scale(1.1,0.2,3.9);
+               drawMesh(cubeMesh, 'brass');
+            M.restore();
+            M.save();
+               M.translate(0,0.3,0);
+               M.translate(p[0],p[1],0);
+               M.scale(0.08);
+               drawMesh(halfsphereMesh2,'grey');
+            M.restore();
+            M.save();
+               M.translate(0,0.3,0);
+               M.translate(p[0],p[1],0);
+               M.rotateX(Math.PI/2);
+               M.scale(0.08);
+               drawMesh(diskMesh,'grey');
+            M.restore();
+         M.restore();
+         M.save();
+            
+            M.save();
+               M.translate(0.015,-0.07,0.01);
+               M.translate(p[0],p[1],0);
+               M.scale(0.02);
+               M.scale(1.1,0.2,3.9);
+               drawMesh(cubeMesh, 'brass');
+            M.restore();
+            M.save();
+               M.translate(0,-0.05,0);
+               M.translate(p[0],p[1],0);
+               M.rotateZ(Math.PI/1);
+               M.scale(0.08);
+               drawMesh(halfsphereMesh2,'grey');
+            M.restore();
+         M.restore();
+        
+         // DRAW SLIDER FIXED PART
+         M.save();
+
+            M.translate(p[0],p[1]+0.15,0);
+            M.rotateX(Math.PI/2);
+            //M.rotateY(Math.PI/2);
+            M.scale(sr/2,sr/2,sw2/1.5);
+            drawMesh(cylinderMesh, 'grey');
+         M.restore();
+
+         // DRAW SLIDER MOVING PART
+
+         M.save();
+            M.translate(p[0],p[1]+widgetValue[n],0);
+            console.log("value: "+widgetValue[n]);
+            M.rotateY(Math.PI/1.8);
+            M.scale(1,1,2);
+            M.scale(sr,sr,sr);
+            drawMesh(cylinderMesh, selected != n ? 'grey' : widgetColor[n]);
+            M.scale(1,0.25,0.5);
+            drawMesh(cubeMesh, 'brass');
+         M.restore();
+
+      break;
+      
+      }
+   }
+   setUniform('1f', 'ubounceable', 1);
+   setUniform('1f', 'udraggable', 1);
+   // SET VALUES FROM SLIDERS AND BUTTONS
+
+   let isBlobby = widgetValue[0];
+
+   let _divs = .5 + widgetValue[1] / .34, divs = Math.floor(32 + _divs * 100);
+
+   if (widgetValue[2] != isFaceted) {
+      isFaceted = widgetValue[2];
+      blobbyMesh = undefined;
+   }
+
+   if (widgetValue[3] != isBlurry) {
+      isBlurry = widgetValue[3];
+      blobbyMesh = undefined;
+   }
+   let blur = isBlurry ? 2 : .1;
+
+   if (widgetValue[4] != isSoftMin) {
+      blobs.useSoftMin(isSoftMin = widgetValue[4]);
+      blobbyMesh = undefined;
+   }
+
+   if (widgetValue[5] != isNegativeShape) {
+      isNegativeShape = widgetValue[5];
+      blobbyMesh = undefined;
+   }
+
+   
+
+   let blobColorData, blobMatrices;
+
+   // INITIALIZE BLOBBY RENDERING FOR THIS ANIMATION FRAME
+
+   let beginBlobs = () => {
+      blobs.clear();
+      blobColorData = [];
+      blobMatrices = [];
+   }
+
+   // ADD A SINGLE BLOB
+
+   let addBlob = (type, materialName, isNegativeShape) => {
+      blobColorData = blobColorData.concat(materials[materialName].diffuse);
+      blobMatrices.push(M.value());
+      if (isBlobby)
+         blobs.addBlob(type, M.value(), isNegativeShape ? -blur : blur);
+      else
+         drawMesh(type == CUBE ? cubeMesh : type == CYLINDER ? cylinderMesh : sphereMesh,
+                  materialName);
+   }
+
+   // FINAL PREPARATION FOR BLOBBY RENDERING FOR THIS ANIMATION FRAME
+
+   let endBlobs = () => {
+      if (blobbyMesh === undefined) {
+         blobbyMesh = implicitSurfaceTriangleMesh(divs, blobs.eval, blobs.computeWeights, isFaceted);
+
+         blobInverseMatrices = [];
+         for (let n = 0 ; n < blobMatrices.length ; n++)
+            blobInverseMatrices.push(matrix_inverse(blobMatrices[n]));
+      }
+
+      let blobMatrixData = [], blobInvMatrixData = [];
+      for (let n = 0 ; n < blobMatrices.length ; n++) {
+         let m = matrix_multiply(blobMatrices[n], blobInverseMatrices[n]);
+         blobMatrixData = blobMatrixData.concat(m);
+         blobInvMatrixData = blobInvMatrixData.concat(matrix_inverse(m));
+      }
+
+      setUniform('3fv', 'uBlobColor' , blobColorData);
+      setUniform('Matrix4fv', 'uMatrices' , false, blobMatrixData);
+      setUniform('Matrix4fv', 'uInvMatrices' , false, blobInvMatrixData);
+   }
+
+   // DRAW THE SCENE
+
+   M.save();
+      setUniform('1f', 'uBlobby', isBlobby ? 1 : 0);
+
+      // DEFINE ALL THE COMPONENT BLOBBY OBJECTS
+
+      beginBlobs();
+
+      let flap0 = Math.sin(20*(widgetValue[6]*10)*time)/4;
+      let flap1 = Math.sin(20*(widgetValue[6]*10)*time - Math.PI/2)/4;
+
+
+
+      setUniform('1f', 'ubounceable', 0);
+      setUniform('1f', 'udraggable', 0);  
+      setUniform('1f', 'uBlobby',  0); 
+      //########### squeeze #############
+      M.save();
+      M.translate(0.23,0.1,0);
+      M.scale(0.7);
+      //M.rotateY(-0.12);
+        M.save();
+           M.translate(0.8, 0.33, 0);
+           M.rotateX(Math.PI/2);
+           M.scale(0.05,0.05,0.35);
+           M.scale(0.5);
+           drawMesh(cylinderMesh,'grey');
+        M.restore();
+        M.save();
+           M.translate(0.8, 0.4, 0);
+           M.rotateX(-Math.PI/2);
+           M.scale(0.05);
+           M.scale(0.06,0.06,0.08);
+           drawMesh(hornMesh,'grey');
+        M.restore();
+        M.save();
+           M.translate(0.8, 0.34, 0);
+           M.rotateX(Math.PI/2);
+           M.scale(0.05,0.05,0.05);
+           M.scale(1.15);
+           drawMesh(cylinderMesh,'black2');
+        M.restore();
+        M.save();
+           M.translate(0.8, 0.27, 0);
+           M.rotateX(Math.PI/2);
+           M.scale(0.05,0.05,0.02);
+           M.scale(1.15);
+           drawMesh(cylinderMesh,'grey');
+        M.restore();
+        M.save();
+           M.translate(0.8, 0.24, 0);
+           M.rotateX(Math.PI/2);
+           M.scale(0.05,0.05,0.02);
+           M.scale(0.8);
+           drawMesh(cylinderMesh,'grey');
+        M.restore();
+        M.save();
+           M.translate(0.8, 0.15, 0);
+           M.scale(0.05,0.03,0.05);
+           M.scale(0.65);
+           drawMesh(cubeMesh,'grey');
+        M.restore();
+        //######### claw ######
+        M.save();
+           M.translate(0.74, 0.16, 0);
+           M.rotateZ(-0.3);
+           M.scale(0.07,0.027,0.027);
+           M.scale(0.65);
+           drawMesh(cubeMesh,'grey');
+        M.restore();
+        M.save();
+           M.translate(0.67, 0.152, 0);
+           M.rotateZ(0.5);
+           M.scale(0.07,0.027,0.027);
+           M.scale(0.65);
+           drawMesh(cubeMesh,'grey');
+        M.restore();
+        M.save();
+           M.translate(0.64, 0.08, 0);
+           if(squeeze==1){
+              M.rotateZ(Math.min(time-squeeze_time,.5));
+            }
+           M.scale(0.027,0.1,0.027);
+           M.scale(0.65);
+           drawMesh(cubeMesh,'grey');
+        M.restore();
+        M.save();
+           M.translate(0.68, -0.005, 0);
+           if(squeeze==1){
+              M.translate(Math.min((time-squeeze_time)/19,0.025),Math.min((time-squeeze_time)/19,0.025),0);
+              M.rotateZ(Math.min((time-squeeze_time)*2,.5));
+            }
+           M.rotateZ(0.9);
+           M.scale(0.02,0.09,0.02);
+           M.scale(0.65);
+           drawMesh(cubeMesh,'grey');
+        M.restore();
+       
+       //###### rclaw ########
+       M.translate(1.6,0,0);
+       M.rotateY(Math.PI);
+       M.save();
+           M.translate(0.74, 0.16, 0);
+           M.rotateZ(-0.3);
+           M.scale(0.07,0.027,0.027);
+           M.scale(0.65);
+           drawMesh(cubeMesh,'grey');
+        M.restore();
+        M.save();
+           M.translate(0.67, 0.152, 0);
+           M.rotateZ(0.5);
+           M.scale(0.07,0.027,0.027);
+           M.scale(0.65);
+           drawMesh(cubeMesh,'grey');
+        M.restore();
+        M.save();
+           M.translate(0.64, 0.08, 0);
+           if(squeeze==1){
+              M.rotateZ(Math.min(time-squeeze_time,.5));
+            }
+           M.scale(0.027,0.1,0.027);
+           M.scale(0.65);
+           drawMesh(cubeMesh,'grey');
+        M.restore();
+        M.save();
+           M.translate(0.68, -0.005, 0);
+           if(squeeze==1){
+              M.translate(Math.min((time-squeeze_time)/19,0.025),Math.min((time-squeeze_time)/19,0.025),0);
+              M.rotateZ(Math.min((time-squeeze_time)*2,.5));
+            }
+           M.rotateZ(0.9);
+           M.scale(0.02,0.09,0.02);
+           M.scale(0.65);
+           drawMesh(cubeMesh,'grey');
+        M.restore();
+        
+
+      M.restore();
+
+      //########### hammer #############
+
+      M.save();  
+         
+         M.translate(0.8,-0.1,0);
+         if(hammer==1){
+            M.rotateZ(0.8);
+         }
+         M.save();
+            M.scale(0.08,0.04,0.08);
+            drawMesh(cubeMesh,'grey');
+         M.restore();
+         M.save();
+            M.scale(0.05,0.05,0.1);
+            drawMesh(cubeMesh,'grey');
+         M.restore();
+         M.save();
+            M.translate(0,-0.055,0);
+            M.rotateX(Math.PI/2);
+            M.scale(0.02,0.02,0.12);
+            drawMesh(cylinderMesh,'grey');
+         M.restore();
+         M.save();
+            M.translate(0,-0.2,0);
+            M.rotateX(Math.PI/2);
+            M.scale(0.025,0.025,0.06);
+            drawMesh(cylinderMesh,'black');
+         M.restore();
+      M.restore();
+      setUniform('1f', 'uBlobby',  1);
+      setUniform('1f', 'udraggable', 1);
+      setUniform('1f', 'ubounceable', 1);
+
+      //########### flat dog ############
+      M.save();  
+         M.rotateY(-offsetY);
+         if(hammer==1){
+            setUniform('1f', 'uBlobby',  0);
+            M.save();
+               
+               M.translate(0,-0.3,0);
+               M.scale(0.3,0.1,0.3);
+               drawMesh(sphereMesh,'pink2');
+               M.translate(0,-0.3,0);
+               M.scale(1.2,0.8,1.5);
+               drawMesh(sphereMesh,'pink2');
+               M.translate(0,-0.3,0);
+               M.scale(1.2,0.8,1.5);
+               drawMesh(sphereMesh,'pink2');
+            M.restore();
+            setUniform('1f', 'uBlobby',  1);
+         }
+         
+         
+        
+
+        
+      M.save();
+      M.scale(1-hammer);
+      if(widgetValue[6]>=0)
+         M.scale(1+widgetValue[6]);
+                        
+                  //########## upper teeth #############
+                  M.save();
+                   
+                  M.translate(0,0.01,0.2);
+                  M.rotateX(0.5);
+                  M.scale(0.3,0.3,0.5);
+                  
+                        setUniform('1f', 'uBlobby',  0);
+                        M.save();
+                               M.translate(0, 0.28, 0);
+                               M.rotateX(Math.PI/2);
+                               M.scale(0.1);
+                               //drawMesh(cylinderMesh,'skin');
+                         addBlob(CYLINDER, 'skin', false);
+                        M.restore();
+
+                        M.save();
+                               M.translate(0.15, 0.28, -0.05);
+                               M.rotateX(Math.PI/2);
+                               M.scale(0.1);
+                               //drawMesh(cylinderMesh,'skin');
+                         addBlob(CYLINDER, 'skin', false);
+                        M.restore();
+                        M.save();
+                               M.translate(-0.15, 0.28, -0.05);
+                               M.rotateX(Math.PI/2);
+                               M.scale(0.1);
+                               //drawMesh(cylinderMesh,'skin');
+                         addBlob(CYLINDER, 'skin', false);
+                        M.restore();
+                        M.save();
+                               M.translate(0.25, 0.28, -0.2);
+                               M.rotateX(Math.PI/2);
+                               M.scale(0.1);
+                               //drawMesh(cylinderMesh,'skin');
+                         addBlob(CYLINDER, 'skin', false);
+                        M.restore();
+                        M.save();
+                               M.translate(-0.25, 0.28, -0.2);
+                               M.rotateX(Math.PI/2);
+                               M.scale(0.1);
+                               //drawMesh(cylinderMesh,'skin');
+                         addBlob(CYLINDER, 'skin', false);
+                        M.restore();
+                        /*M.save();
+                               M.translate(0.35, 0.28, -0.3);
+                               M.rotateX(Math.PI/2);
+                               M.scale(0.1);
+                               //drawMesh(cylinderMesh,'skin');
+                         addBlob(CYLINDER, 'skin', false);
+                        M.restore();
+                        M.save();
+                               M.translate(-0.35, 0.28, -0.3);
+                               M.rotateX(Math.PI/2);
+                               M.scale(0.1);
+                               //drawMesh(cylinderMesh,'skin');
+                         addBlob(CYLINDER, 'skin', false);
+                        M.restore();*/
+                        
+                        M.save();
+                               M.translate(0.18, 0.15, -0.03);
+                               M.rotateX(Math.PI/2);
+                               M.rotateZ(-0.5);
+                               M.scale(0.1,0.05,0.1);
+                               drawMesh(cylinderMesh,'teeth');
+                         //addBlob(CUBE, 'white', false);
+                        M.restore();
+
+                        M.save();
+                               M.translate(-0.18, 0.15, -0.03);
+                               M.rotateX(Math.PI/2);
+                               M.rotateZ(0.5);
+                               M.scale(0.1,0.05,0.1);
+                               drawMesh(cylinderMesh,'teeth');
+                         //addBlob(CUBE, 'white', false);
+                        M.restore();
+                        M.save();
+                               M.translate(-0.28, 0.15, -0.21);
+                               M.rotateX(Math.PI/2);
+                               M.rotateZ(0.8);
+                               M.scale(0.05,0.05,0.07);
+                               drawMesh(cylinderMesh,'teeth');
+                         //addBlob(CUBE, 'white', false);
+                        M.restore();
+                        M.save();
+                               M.translate(0.28, 0.15, -0.21);
+                               M.rotateX(Math.PI/2);
+                               M.rotateZ(-0.8);
+                               M.scale(0.05,0.05,0.07);
+                               drawMesh(cylinderMesh,'teeth');
+                         //addBlob(CUBE, 'white', false);
+                        M.restore();
+                  
+                  setUniform('1f', 'uBlobby',  1);
+                  M.restore();
+
+                  //######### ear ##############
+
+                  M.save();
+                         M.translate(-0.12, 0.48, 0.1);
+                         M.rotateX(Math.PI/2);
+                         M.rotateY(0.5);
+                         M.scale(0.15,0.15,0.3);
+                         M.scale(0.2);
+                   addBlob(CYLINDER, 'black', false);
+                  M.restore();
+                  M.save();
+                         M.translate(-0.28, 0.55, 0.1);
+                         M.rotateZ(-0.3);
+                         M.scale(0.8,0.2,0.3);
+                         M.scale(0.2);
+                   addBlob(SPHERE, 'black', false);
+                  M.restore();
+                  M.save();
+                         M.translate(0.12, 0.48, 0.1);
+                         M.rotateX(Math.PI/2);
+                         M.rotateY(-0.5);
+                         M.scale(0.15,0.15,0.3);
+                         M.scale(0.2);
+                   addBlob(CYLINDER, 'black', false);
+                  M.restore();
+                  M.save();
+                         M.translate(0.28, 0.55, 0.1);
+                         M.rotateZ(0.3);
+                         M.scale(0.8,0.2,0.3);
+                         M.scale(0.2);
+                   addBlob(SPHERE, 'black', false);
+                  M.restore();
+
+
+                  //######### head ##############
+                  M.save();
+                         M.translate(0, 0.27, 0.1);
+                         M.scale(0.16,0.15,0.15);
+                         M.scale(1.1);
+                   addBlob(SPHERE, 'pink', false);
+                  M.restore();
+
+                  M.save();
+                         M.translate(0, 0.15, 0.06);
+                         M.scale(0.17,0.15,0.05);
+                   addBlob(SPHERE, 'pink', false);
+                  M.restore();
+
+                  M.save();
+
+                         M.translate(0, 0.02, 0.1);
+                         M.rotateX(0.25);
+                         M.scale(.13,.03,.15);
+                         M.scale(.8);
+                   addBlob(SPHERE, 'pink', false);
+                      M.restore();
+      M.restore();
+
+
+      M.save();
+      M.scale(1-hammer); 
+                  M.save();
+                         M.translate(0, 0.18, -0.05);
+                         M.scale(0.18,0.15,0.15);
+                   addBlob(SPHERE, 'pink', false);
+                  M.restore();
+                  M.save();
+                         M.translate(0, 0.1, -0.05);
+
+                         M.scale(0.18,0.15,0.15);
+                   addBlob(SPHERE, 'pink', false);
+                  M.restore();
+      M.restore();
+
+
+      M.save();
+      if(hammer==1)
+         M.scale(0); 
+      if(widgetValue[6]>=0)
+         M.scale(1-widgetValue[6],1+widgetValue[6]*1.2,1+widgetValue[6]);            
+                  M.save();
+                         M.translate(0, -0.1, -0.1);
+
+                         M.scale(0.2,0.25,0.2);
+                   addBlob(SPHERE, 'pink', false);
+                  M.restore();
+      M.restore();
+      
+
+         
+      M.save();           
+      M.scale(1-hammer);
+                  M.save();
+                     M.scale(.6); 
+                     M.save();
+                            M.translate(0.13, -0.25, -0.15);
+                            M.translate(-widgetValue[6]*3.5,0,0);
+                            M.scale(0.15,0.13,0.2);
+                      addBlob(SPHERE, 'pink', false);
+                      M.restore();
+                     M.save();
+                            M.translate(-0.13, -0.25, -0.15);
+                            M.translate(widgetValue[6]*3.5,0,0);
+                            M.scale(0.15,0.13,0.2);
+                      addBlob(SPHERE, 'pink', false);
+                     M.restore();
+                  M.restore();
+
+                  //############ hand ###############
+                 
+                  for (let sgn = -1 ; sgn <= 1 ; sgn += 2) {
+                     M.save();
+                        M.translate(sgn*.05, 0, -0.1);
+                        M.rotateZ(sgn*flap0);
+                        M.translate(sgn*.15, 0, 0);
+                        M.save();
+                           M.scale(.1,.02,.02);
+                           addBlob(SPHERE, 'pink', false);
+                        M.restore();
+                        M.translate(sgn*.05, 0, 0);
+                        M.rotateZ(sgn*flap1);
+                        M.translate(sgn*.1, 0, 0);
+                        M.save();
+                           M.scale(.1,.02,.02);
+                           addBlob(SPHERE, 'pink', false);
+                        M.restore();
+                        M.translate(sgn*.1, 0, 0);
+                        M.save();
+                           M.translate(sgn*.01, 0, 0);
+                           M.scale(.03,.03,.03);
+                           addBlob(SPHERE, 'pink', false);
+                        M.restore();
+                        M.save();
+                           M.translate(sgn*-.03, 0.03, 0);
+                           M.scale(.03,.03,.03);
+                           addBlob(SPHERE, 'pink', false);
+                        M.restore();
+                        M.save();
+                           M.translate(sgn*-.03, -0.03, 0);
+                           M.scale(.03,.03,.03);
+                           addBlob(SPHERE, 'pink', false);
+                        M.restore();
+
+                     M.restore();
+                  }
+
+                  
+
+                  M.save();
+                        ///###### l leg ######
+                        M.translate(-0.1,-0.05,0);
+                        M.rotateZ(-Math.PI/2);
+                        M.scale(1);
+                        M.save();
+                               M.translate(0.2, 0, -0.1);
+                               M.rotateY(Math.PI/2);
+                               M.scale(0.2,0.2,1);
+                               M.scale(0.1);
+                         addBlob(CYLINDER, 'pink', false);
+                        M.restore();
+                        M.save();
+                               M.translate(0.35, 0, -0.1);
+                               M.rotateY(Math.PI/2);
+                               M.scale(0.2,0.2,1);
+                               M.scale(0.1);
+                         addBlob(CYLINDER, 'pink', false);
+                        M.restore();
+                        M.save();
+                               M.translate(0.47, 0, -0.1);
+                               M.scale(0.2,0.2,0.2);
+                               M.scale(0.12);
+                         addBlob(SPHERE, 'pink', false);
+                        M.restore();
+                        M.save();
+                               M.translate(0.43, 0, -0.1);
+                               M.scale(0.2,0.2,0.2);
+                               M.scale(0.12);
+                         addBlob(SPHERE, 'pink', false);
+                        M.restore();
+                        M.save();
+                               M.translate(0.43, 0.04, -0.1);
+                               M.scale(0.2,0.2,0.2);
+                               M.scale(0.12);
+                         addBlob(SPHERE, 'pink', false);
+                        M.restore();
+                        M.save();
+                               M.translate(0.43, -0.04, -0.1);
+                               M.scale(0.2,0.2,0.2);
+                               M.scale(0.12);
+                         addBlob(SPHERE, 'pink', false);
+                        M.restore();
+                  M.restore();
+
+                  M.save();
+                        ///###### r leg ######
+                        M.translate(0.1,-0.05,0);
+                        M.rotateZ(-Math.PI/2);
+                        M.scale(1);
+                        M.save();
+                               M.translate(0.2, 0, -0.1);
+                               M.rotateY(Math.PI/2);
+                               M.scale(0.2,0.2,1);
+                               M.scale(0.1);
+                         addBlob(CYLINDER, 'pink', false);
+                        M.restore();
+                        M.save();
+                               M.translate(0.35, 0, -0.1);
+                               M.rotateY(Math.PI/2);
+                               M.scale(0.2,0.2,1);
+                               M.scale(0.1);
+                         addBlob(CYLINDER, 'pink', false);
+                        M.restore();
+                        M.save();
+                               M.translate(0.47, 0, -0.1);
+                               M.scale(0.2,0.2,0.2);
+                               M.scale(0.12);
+                         addBlob(SPHERE, 'pink', false);
+                        M.restore();
+                        M.save();
+                               M.translate(0.43, 0, -0.1);
+                               M.scale(0.2,0.2,0.2);
+                               M.scale(0.12);
+                         addBlob(SPHERE, 'pink', false);
+                        M.restore();
+                        M.save();
+                               M.translate(0.43, 0.04, -0.1);
+                               M.scale(0.2,0.2,0.2);
+                               M.scale(0.12);
+                         addBlob(SPHERE, 'pink', false);
+                        M.restore();
+                        M.save();
+                               M.translate(0.43, -0.04, -0.1);
+                               M.scale(0.2,0.2,0.2);
+                               M.scale(0.12);
+                         addBlob(SPHERE, 'pink', false);
+                        M.restore();
+                  M.restore();
+      M.restore();
+
+
+            /*M.save();
+                   M.rotateX(0.35);
+                   M.translate(0, 0.01, 0.02);
+                   M.scale(.2,.07,.15);
+                   M.scale(.8);
+             addBlob(SPHERE, 'pink', false);
+                M.restore();*/
+
+      M.save();
+      if(widgetValue[6]>=0)
+         M.scale(1+widgetValue[6]);
+
+         M.save();
+         M.scale(1-hammer); 
+                 
+                  M.save();
+                     M.translate(-0.07, 0.33, 0.23);
+                     
+                     M.rotateZ(0.5);
+                     M.scale(0.6,0.2,0.3);
+                     M.scale(.1);
+                     
+                      addBlob(SPHERE, 'pink', false);
+                     
+                  M.restore();
+                  M.save();
+                     M.translate(-0.08, 0.34, 0.25);
+                     
+                     M.rotateZ(0.5);
+                     M.scale(0.6,0.2,0.3);
+                     M.scale(.1);
+                     
+                      addBlob(SPHERE, 'pink', false);
+                     
+                  M.restore();
+                  M.save();
+                     M.translate(-0.08, 0.32, 0.25);
+                     
+                     M.rotateZ(0.5);
+                     M.scale(0.6,0.2,0.3);
+                     M.scale(.12);
+                     
+                      addBlob(SPHERE, 'pink', false);
+                     
+                  M.restore();
+                  M.save();
+                     M.translate(0.07, 0.33, 0.23);
+                     
+                     M.rotateZ(-0.5);
+                     M.scale(0.6,0.2,0.3);
+                     M.scale(.1);
+                     
+                      addBlob(SPHERE, 'pink', false);
+                     
+                  M.restore();
+                  M.save();
+                     M.translate(0.08, 0.34, 0.25);
+                     
+                     M.rotateZ(-0.5);
+                     M.scale(0.6,0.2,0.3);
+                     M.scale(.1);
+                     
+                      addBlob(SPHERE, 'pink', false);
+                     
+                  M.restore();
+                  M.save();
+                     M.translate(0.08, 0.32, 0.25);
+                     
+                     M.rotateZ(-0.5);
+                     M.scale(0.6,0.2,0.3);
+                     M.scale(.12);
+                     
+                      addBlob(SPHERE, 'pink', false);
+                     
+                  M.restore();
+
+                  //######## eyes ########
+                  M.save();
+                     M.translate(0.07, 0.28, 0.26);
+                     
+                     M.scale(.5,.5,.15);
+                     M.scale(.1);
+                     addBlob(SPHERE, 'red', true);
+                  M.restore();
+                  M.save();
+                     M.translate(-0.07, 0.28, 0.26);
+                     
+                     M.scale(.5,.5,.15);
+                     M.scale(.1);
+                     addBlob(SPHERE, 'red', true);
+                  M.restore();
+         M.restore();
+
+            //########## eyes hair #########
+            M.save();
+            if(widgetValue[6]>=0){
+               M.translate(0,0,-widgetValue[6]/2);
+               M.scale(1+widgetValue[6]);
+            }
+                  
+                M.save();
+                  if(hammer==1){
+                     M.translate(0,-0.45,0);
+                     if(time-hammer_time<3)
+                        M.scale(1.5,0.3,1.5);
+                     else{
+                        if(time-hammer_time > 4 && time-hammer_time< 5 )
+                           M.rotateY(0.2);
+                        M.scale(1);
+                     }
+                  }
+                  M.translate(-0.07, 0.33, 0.29);
+                  M.rotateZ(0.5);
+                  M.scale(0.63,0.1,0.1);
+                  M.scale(.1);
+                     setUniform('1f', 'uBlobby',  0);
+                     drawMesh(cubeMesh,'black');
+                     setUniform('1f', 'uBlobby',  1);
+                  
+               M.restore();
+
+               M.save();
+                  if(hammer==1){
+                     M.translate(0,-0.45,0);
+                     if(time-hammer_time<2)
+                        M.scale(1.5,0.3,1.5);
+                     else{
+                        if(time-hammer_time > 4 && time-hammer_time< 5 )
+                           M.rotateY(0.2);
+                        M.scale(1);
+                     }
+                  }
+                  M.translate(0.07, 0.33, 0.29);
+                  M.rotateZ(-0.5);
+                  M.scale(0.63,0.1,0.1);
+                  M.scale(.1);
+                     setUniform('1f', 'uBlobby',  0);
+                     drawMesh(cubeMesh,'black');
+                     setUniform('1f', 'uBlobby',  1);
+                  
+               M.restore();
+            M.restore();
+
+            //######### eyes ############
+
+            M.save();
+               if(hammer==1){
+                  M.translate(0,-0.5,0);
+                  if(time-hammer_time<2)
+                     M.scale(1.5,0.3,1.5);
+                  else{
+                     if(time-hammer_time > 4 && time-hammer_time< 5 )
+                        M.rotateY(0.2);
+                     M.scale(1);
+                  }
+               }
+               if(widgetValue[6]>=0)
+                  M.translate(0.07+widgetValue[6]/8, 0.28, 0.24);
+               else
+                  M.translate(0.07, 0.28, 0.24);
+               
+               M.scale(.5,.6,.5);
+               M.scale(.12);
+                if(widgetValue[6]>=0)
+                  M.scale(1+widgetValue[6]*3);
+
+                setUniform('1f', 'uBlobby',  0);
+                setUniform('1f', 'udraggable', 0);
+                drawMesh(sphereMesh,'white');
+                M.translate(-0.03, 0, 0.8);
+                M.translate(0+cx*0.2, 0+cy*0.3, 0);
+                M.scale(0.3);
+                drawMesh(sphereMesh,'black');
+                setUniform('1f', 'uBlobby',  1 );
+                setUniform('1f', 'udraggable', 1);
+            M.restore();
+            M.save();
+               if(hammer==1){
+                  M.translate(0,-0.5,0);
+                  if(time-hammer_time<3)
+                     M.scale(1.5,0.3,1.5);
+                  else{
+                     if(time-hammer_time > 4 && time-hammer_time< 5 )
+                        M.rotateY(0.2);
+                     M.scale(1);
+                  }
+               }
+               if(widgetValue[6]>=0)
+                  M.translate(-0.07-widgetValue[6]/8, 0.28, 0.24);
+               else
+                  M.translate(-0.07, 0.28, 0.24);
+               
+               M.scale(.5,.6,.5);
+               M.scale(.12);
+                if(widgetValue[6]>=0)
+                  M.scale(1+widgetValue[6]*3);
+                setUniform('1f', 'uBlobby',  0);
+                setUniform('1f', 'udraggable', 0);
+                drawMesh(sphereMesh,'white');
+                M.translate(0.03, 0, 0.8);
+                M.translate(0+cx*0.2, 0+cy*0.3, 0);
+                M.scale(0.3);
+                drawMesh(sphereMesh,'black');
+                setUniform('1f', 'uBlobby',  1 );
+                setUniform('1f', 'udraggable', 1);
+            M.restore();
+
+            //######### upper lip ###########
+
+          M.save();
+          M.scale(1-hammer); 
+          M.rotateX(0.25);
+                /*M.save();
+                   M.translate(0, 0.39, 0.15);
+                   M.rotateX(1.1);
+                  
+                   M.scale(0.018,0.07,0.03);
+             addBlob(SPHERE, 'pink', true);
+                M.restore();*/
+                
+                
+                M.save();
+                   M.translate(0, 0.3, 0.15);
+                   M.rotateX(1.1);
+                   M.scale(.15,.05,.1);
+             addBlob(SPHERE, 'pink', false);
+                M.restore();
+
+                M.save();
+                   M.translate(0, 0.2, 0.2);
+                   M.scale(.2,.07,.25);
+                   M.scale(.8);
+             addBlob(SPHERE, 'pink', false);
+                M.restore();
+                M.save();
+                   M.translate(0, 0.2, 0.1);
+                   M.scale(.2,.07,.1);
+                   M.scale(.8);
+             addBlob(SPHERE, 'pink', false);
+                M.restore();
+                M.save();
+                   M.translate(-0.09, 0.18, 0.35);
+                   M.scale(.1,.07,.08);
+             addBlob(SPHERE, 'pink', false);
+                M.restore();
+
+                M.save();
+                   M.translate(0.09, 0.18, 0.35);
+                   M.scale(.1,.07,.08);
+             addBlob(SPHERE, 'pink', false);
+                M.restore();
+
+                M.save();
+                   M.translate(0.12, 0.18, 0.42);
+                   M.scale(0.15);
+                   M.scale(.07);
+                   setUniform('1f', 'uBlobby',  0);
+                   drawMesh(sphereMesh,'black2');
+                   setUniform('1f', 'uBlobby',  1);
+                M.restore();
+                M.save();
+                   M.translate(0.165, 0.18, 0.39);
+                   M.scale(0.15);
+                   M.scale(.07);
+                   setUniform('1f', 'uBlobby',  0);
+                   drawMesh(sphereMesh,'black2');
+                   setUniform('1f', 'uBlobby',  1);
+                M.restore();
+                M.save();
+                   M.translate(0.14, 0.21, 0.405);
+                   M.scale(0.15);
+                   M.scale(.07);
+                   setUniform('1f', 'uBlobby',  0);
+                   drawMesh(sphereMesh,'black2');
+                   setUniform('1f', 'uBlobby',  1);
+                M.restore();
+
+                M.save();
+                   M.translate(-0.12, 0.18, 0.42);
+                   M.scale(0.15);
+                   M.scale(.07);
+                   setUniform('1f', 'uBlobby',  0);
+                   drawMesh(sphereMesh,'black2');
+                   setUniform('1f', 'uBlobby',  1);
+                M.restore();
+                M.save();
+                   M.translate(-0.165, 0.18, 0.39);
+                   M.scale(0.15);
+                   M.scale(.07);
+                   setUniform('1f', 'uBlobby',  0);
+                   drawMesh(sphereMesh,'black2');
+                   setUniform('1f', 'uBlobby',  1);
+                M.restore();
+                M.save();
+                   M.translate(-0.14, 0.21, 0.405);
+                   M.scale(0.15);
+                   M.scale(.07);
+                   setUniform('1f', 'uBlobby',  0);
+                   drawMesh(sphereMesh,'black2');
+                   setUniform('1f', 'uBlobby',  1);
+                M.restore();
+
+                M.save();
+                   M.translate(0, 0.24, 0.38);
+                   M.scale(.09,.04,.07);
+             addBlob(SPHERE, 'black', false);
+                M.restore();
+              M.save();
+                   M.translate(0, 0.22, 0.435);
+                   M.scale(0.03,.04,.02);
+                   M.scale(1.2);
+                   M.scale(0.8);
+             addBlob(SPHERE, 'black', false);
+                M.restore();
+          M.restore(); 
+      M.restore();
+  M.restore();
+      /*// DRAW THE BODY
+
+      M.translate(0,-.1*flap0,0);
+      M.save();
+         M.scale(.15,.15,.2);
+         addBlob(CYLINDER, 'green');
+      M.restore();
+
+      // DRAW THE HEAD
+
+      M.save();
+         M.translate(0,.2,.2);
+         M.scale(.07,.1,.1);
+         addBlob(SPHERE, 'yellow');
+      M.restore();
+
+      // DRAW THE BEAK
+
+      M.save();
+         M.translate(0,.2,.25);
+         M.scale(.03,.03,.1);
+         addBlob(CUBE, 'red');
+      M.restore();
+
+      // DRAW THE FLAPPING WINGS
+
+      for (let sgn = -1 ; sgn <= 1 ; sgn += 2) {
+         M.save();
+            M.translate(sgn*.05, 0.7, 0);
+            M.rotateZ(sgn*flap0);
+            M.translate(sgn*.15, 0, 0);
+            M.save();
+               M.scale(.2,.02,.1);
+               addBlob(SPHERE, 'blue', isNegativeShape);
+            M.restore();
+            M.translate(sgn*.05, 0, 0);
+            M.rotateZ(sgn*flap1);
+            M.translate(sgn*.1, 0, 0);
+            M.save();
+               M.scale(.2,.02,.1);
+               addBlob(SPHERE, 'blue');
+            M.restore();
+         M.restore();
+      }*/
+      
+
+
+      if(release_sw==1){
+        release_time=time;
+        release_sw=0;
+      }
+      else if(release_sw==0 ){
+          let p =Math.ceil(time*100%100);
+          setUniform('1f', 'uroffset_x', offset_x/10*(.1/(time-release_time))*Math.cos(time*10));
+          setUniform('1f', 'uroffset_y', offset_y/10*(.1/(time-release_time))*Math.cos(time*10));
+          if(time-release_time <= 1.3){
+            setUniform('1f', 'uoffset_x', offset_x/150*(1/(time-release_time))*Math.pow(-1.,p));
+            setUniform('1f', 'uoffset_y', offset_y/150*(1/(time-release_time))*Math.pow(-1.,p));
+          
+          }
+          else{
+            setUniform('1f', 'uoffset_x', 0);
+            setUniform('1f', 'uoffset_y', 0);
+            setUniform('1f', 'uoriginal_x', 0);
+            setUniform('1f', 'uoriginal_y', 0);
+          }
+
+            
+          
+      }
+      if(hammer==2){
+         hammer_time=time;
+         hammer=1;
+      }
+      if(time-hammer_time>7){
+         hammer=0;
+      }
+      if(squeeze==2){
+        squeeze_time=time;
+        squeeze=1;
+      }
+      if(squeeze==1 && widgetValue[6]<0.27){
+        widgetValue[6]+=(time-squeeze_time)/15;
+      }
+
+      // CREATE AND RENDER THE IMPLICIT SURFACE MESH
+
+      if (isBlobby) {
+         endBlobs();
+         //M.rotateY(time/4);
+         drawMesh(blobbyMesh, 'white', true);
+      }
+
+      setUniform('1f', 'uBlobby', 0);
+   M.restore();
+}
+
+let blobbyMesh, isNegativeShape, isSoftMin, isFaceted, isBlurry;
+let blobs = new Blobs();
+let blobInverseMatrices;
+
+const SPHERE = 0;
+const CYLINDER = 1;
+const CUBE = 2;
+
+// DESCRIPTIONS OF ALL THE CONTROL WIDGETS
+
+let widgetType  = ['toggle','slider', 'toggle', 'toggle', 'toggle', 'toggle','slider2'];
+let widgetColor = ['red', 'green', 'blue', 'red','green','blue','red'];
+let widgetPos = [[-75,.96],[-5,.96],[-25,.96],[10,.96],[-25,.96],[-5,.96],[-.8,.3]];
+let widgetValue = [1,0.25,0,0,0,0,0];
+let sr = 0.02;
+let sw = 0.11;
+let sw2= .3;
+let sw3=5.5;
+let cx = 0, cy = 0, selected = -1, release_sw = 0,  selected2 = -1, selected3 = -1, squeeze = 0, hammer = 0;
+
+// SET THE VALUE OF A WIDGET
+
+let setValue = state => {
+   if (selected >= 0)
+      switch (widgetType[selected]) {
+      case 'slider':
+         widgetValue[selected] = Math.max(sr-sw, Math.min(sw-sr, cx-widgetPos[selected][0]));
+         blobbyMesh = undefined;
+         break;
+      case 'slider2':
+         widgetValue[selected] = Math.max(0, Math.min((sw2-sr)/1, (cy-widgetPos[selected][1])/1));
+         break;
+      case 'toggle':
+         widgetValue[selected] = 1 - widgetValue[selected];
+         break;
+      case 'button':
+         widgetValue[selected] = state;
+         break;
+      }
+}
+
+// FIND OUT WHICH WIDGET IS AT THE CURSOR
+var audio = document.getElementById("bgMusic");
+var audio2 = document.getElementById("bgMusic2");
+var audio3 = document.getElementById("bgMusic3");
+let rayHitsSphere = (V, W, S) => {
+   let Vp = [ V[0] - S[0], V[1] - S[1], V[2] - S[2] ];
+   let vw = dot(Vp, W);
+   let d = vw * vw - dot(Vp, Vp) + S[3] * S[3];
+   return d > 0;
+}
+
+let animationTime = 0, animationRunning = false;
+
+let doHitTesting = () => {
+   let V = [ 0, 0, fl ],
+       W = normalize([ cx, cy, -fl ]);
+   selected = -1;
+   for (let n = 0 ; n < widgetValue.length ; n++) {
+      let p = widgetPos[n];
+      for (let x = -sw, y=-sw2 ; x <= sw, y<=sw2 ; x += .7*sr, y+=.7*sr)
+         if(p[0]==-0.8  ){
+            if (rayHitsSphere(V,W, [p[0],p[1]+y,0,sr*3])) {
+               selected = n;
+               if (widgetType[selected] == 'slider2')
+                  setValue(1);
+               return;
+            }
+         }
+         else{
+            if (rayHitsSphere(V,W, [p[0]+x,p[1],0,sr])) {
+               selected = n;
+               if (widgetType[selected] == 'slider')
+                  setValue(1);
+               return;
+            }
+         }
+         
+   }
+}
+let doHitTesting2 = () => {
+   let V = [ 0, 0, fl ],
+       W = normalize([ cx, cy, -fl ]);
+      if (rayHitsSphere(V,W, [0,0,0,0.5])) {
+         selected2 = 1;
+         return;
+      }
+      if (rayHitsSphere(V,W, [0.78,0.3,0,0.2])) {
+
+         squeeze = 2;
+         return;
+      }
+      if (rayHitsSphere(V,W, [.78,-.2,0,0.2])) {
+         audio3.play();
+         selected3 = 1;
+         return;
+      }
+}
+
+
+// RESPOND TO MOUSE EVENTS ON THE CANVAS
+let original_x=0;
+let original_y=0;
+let offset_x=0;
+let offset_y=0;
+
+var offsetY=0;
+var offsetX=0;
+canvas1.onPress = (x,y) => {
+   original_x=x;
+   original_y=y;
+   audio.pause();
+   audio.currentTime = 0;
+   doHitTesting();
+   doHitTesting2();
+   if(selected2==1){
+      setUniform('1f', 'uoriginal_x', original_x);
+      setUniform('1f', 'uoriginal_y', original_y);
+      setUniform('1f', 'uroffset_x', 0);
+      setUniform('1f', 'uroffset_y', 0);
+      release_sw=-1;
+   }
+   else if(squeeze==2){
+      audio2.play();
+   }
+   else if(selected3==1){
+      hammer=2;
+   }
+   setUniform('1f', 'urelease', 0.);
+   
+
+}
+
+canvas1.onDrag = (x,y) => {
+   cx = x;
+   cy = y;
+   offset_x=original_x-cx;
+   offset_y=original_y-cy;
+   
+   if(selected2==1){
+      setUniform('1f', 'uoffset_x', 0-offset_x);
+      setUniform('1f', 'uoffset_y', 0-offset_y);
+      setUniform('1f', 'ucurrent_x', cx);
+      setUniform('1f', 'ucurrent_y', cy);
+      setUniform('1f', 'urelease', 0.);
+      release_sw=-1;
+   }
+   else if(squeeze==1){
+      squeeze=1;
+   }
+   
+  
+   if (selected >= 0 && widgetType[selected] != 'toggle')
+      setValue(1);
+}
+
+canvas1.onRelease = (x,y) => {
+   cx = x;
+   cy = y;
+   //setUniform('1f', 'uoffset_x', offset_x);
+   //setUniform('1f', 'uoffset_y', offset_y);
+   audio2.pause();
+   audio2.currentTime = 0;
+   setUniform('1f', 'uoffset_x', 0.);
+   setUniform('1f', 'uoffset_y', 0.);
+   //setUniform('1f', 'urelease', 1.);
+   setValue(0);
+   selected = -1;
+   selected2 = -1;
+   selected3 = -1;
+   squeeze=-1;
+   widgetValue[6]=0;
+   if(release_sw==-1){
+      audio.play();
+      release_sw=1;
+   }
+   else
+      release_sw=0;
+   
+}
+
+canvas1.onMove = (x,y) => {
+   cx = x;
+   cy = y;
+   //console.log(x+":"+y);
+   selected = -1;
+}
+
+// RECORD WHETHER ANY KEY IS PRESSED
+
+let isKeyPressed = false;
+canvas1.onKeyPress   = k => {
+   isKeyPressed = true;
+   if(k==87){offsetX+=0.1;}
+   else if(k==83) {offsetX-=0.1;}
+   else if(k==65) {offsetY+=0.1;}
+   else if(k==68) {offsetY-=0.1;}
+}
+canvas1.onKeyRelease = k => isKeyPressed = false;
+
+// START EVERYTHING
+
+gl_start(canvas1, vs, fs);
+</script>
+
