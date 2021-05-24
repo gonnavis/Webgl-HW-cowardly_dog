@@ -1,5 +1,7 @@
 # rubbertoy_courage_the_cowardly_dog
 
+webGL elastic rubber toy
+
 Demo:
 
 https://tcm390.github.io/rubbertoy_courage_the_cowardly_dog/
