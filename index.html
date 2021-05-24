@@ -7,6 +7,7 @@
   <title>rubber toy courage the cowardly dog/</title>
   <meta name="google-site-verification" content="6TPxgYdY4M6qRKogiNNhxmc60EOCZCd6AFqc7VJzw5A" />
   <meta name="Keywords" content="rubber toy, courage the cowardly dog" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 
 <body bgcolor=white text=white link=white alink=white vlink=white>
@@ -1266,7 +1267,7 @@ function animate(gl) {
           let p =Math.ceil(time*100%100);
           setUniform('1f', 'uroffset_x', offset_x/10*(.1/(time-release_time))*Math.cos(time*10));
           setUniform('1f', 'uroffset_y', offset_y/10*(.1/(time-release_time))*Math.cos(time*10));
-          if(time-release_time <= 1.5){
+          if(time-release_time <= 1.7){
             setUniform('1f', 'uoffset_x', offset_x/150*(1/(time-release_time))*Math.pow(-1.,p));
             setUniform('1f', 'uoffset_y', offset_y/150*(1/(time-release_time))*Math.pow(-1.,p));
           
