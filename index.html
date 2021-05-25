@@ -1,16 +1,16 @@
-<script src=lib.js></script>
-<script src=math.js></script>
-<script src=matrix.js></script>
-<script src=geometry.js></script>
-<script src=implicitSurface.js></script>
+<!DOCTYPE html>
+<html lang="en">
+
 <head>
   <title>rubber toy courage the cowardly dog/</title>
+  <meta charset="utf-8">
   <meta name="google-site-verification" content="6TPxgYdY4M6qRKogiNNhxmc60EOCZCd6AFqc7VJzw5A" />
   <meta name="Keywords" content="rubber toy, courage the cowardly dog" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" type="text/css" href="styles.css">
 </head>
-
-<body bgcolor=white text=white link=white alink=white vlink=white>
+<body>
+<!--<body bgcolor=white text=white link=white alink=white vlink=white>-->
   
   <audio id="bgMusic">
     <source = src="bounce.wav" type="audio/ogg">
@@ -24,16 +24,60 @@
     <source = src="squash.wav" type="audio/ogg">
     <source = src="squash.wav" type="audio/mp3">
   </audio>
-<center>
-<font color=grey size = 5px>Rubber Toy</font><br>
-<font color=black>use 'A' and 'D' to rotate, and use mouse to drag -</font>
-<font color=red>loading may takes about 10 seconds......</font>
-<p>
-<canvas id='canvas1' width=800 height=800></canvas>
-</center>
 
+
+<nav class="navbar">
+  <div class="title">TC<span class="toy">Meng</span>  <span class="dogname">Rubber Toy - Courage The Cowardly Dog</span></div>
+  <ul class="link">
+    <li><a class="nav-link" href="https://github.com/tcm390"> Home </a></li>
+    <li><a class="nav-link" href="https://github.com/tcm390/rubbertoy_courage_the_cowardly_dog"> GitHub </a></li>
+  </ul>
+
+</nav>
+<div class="main_display">
+  <div class="loader" id="loader"></div>
+  <div class="item-1">
+    
+    <canvas id="canvas1" width=800 height=800></canvas>
+    
+  </div>
+  <div class="item-2">
+    
+      <div class="container">
+        <div class="media-object">
+          <div class="icon-wrapper">
+            <img src="https://img.icons8.com/ios/50/000000/user-manual.png" width = "200" height = "200" /> 
+          </div>
+          <div class="blurb-wrapper">
+            <h2 class="blurb-header">Instruction</h2>
+            <div class="blurb-info">
+              <p>use 'A' and 'D' to rotate</p>
+              <p>use mouse to drag the dog</p> 
+              <font color="red">loading may takes about 3 seconds......</font>
+            </div>
+            
+          </div>
+          
+        </div>
+        
+      </div>
+  
+    
+  </div>
+</div>
+
+
+<script>
+setTimeout("document.getElementById('loader').style.display='none'",3000);
+</script>
+
+<script src=lib.js></script>
+<script src=math.js></script>
+<script src=matrix.js></script>
+<script src=geometry.js></script>
+<script src=implicitSurface.js></script>
 </body>
-
+</html>
 <style type="text/css">html,body{height:100%;overflow:hidden;}</style>
 <!!-------- VERTEX SHADER -------->
 
@@ -268,7 +312,6 @@ function animate(gl) {
 
          M.save();
             M.translate(p[0],p[1]+widgetValue[n],0);
-            console.log("value: "+widgetValue[n]);
             M.rotateY(Math.PI/1.8);
             M.scale(1,1,2);
             M.scale(sr,sr,sr);
@@ -1267,7 +1310,7 @@ function animate(gl) {
           let p =Math.ceil(time*100%100);
           setUniform('1f', 'uroffset_x', offset_x/10*(.1/(time-release_time))*Math.cos(time*10));
           setUniform('1f', 'uroffset_y', offset_y/10*(.1/(time-release_time))*Math.cos(time*10));
-          if(time-release_time <= 1.7){
+          if(time-release_time <= 2){
             setUniform('1f', 'uoffset_x', offset_x/150*(1/(time-release_time))*Math.pow(-1.,p));
             setUniform('1f', 'uoffset_y', offset_y/150*(1/(time-release_time))*Math.pow(-1.,p));
           
