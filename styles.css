@@ -37,8 +37,7 @@ html, body {
 .media-object{
 	display: flex;
 	flex-flow: column wrap;
-	padding: 50px;
-	height: 50%;
+	
 }
 .blurb-wrapper{
 	flex:1;
