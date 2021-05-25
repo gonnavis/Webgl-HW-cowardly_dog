@@ -10,10 +10,7 @@ html, body {
 }
 .navbar{
 	display: flex;
-	max-width: 1180px;
 	width: 100%;
-	margin: 0 auto;
-	padding: 10px;
 	justify-content: space-between;
 	 
 }
@@ -81,6 +78,9 @@ html, body {
 }
 .main_display{
 	display: flex;
+	width: 100%;
+	justify-content: space-between;
+	 
 
 }
 .item-1 {
