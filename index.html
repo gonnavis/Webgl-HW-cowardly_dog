@@ -1311,7 +1311,7 @@ function animate(gl) {
           let p =Math.ceil(time*100%100);
           setUniform('1f', 'uroffset_x', offset_x/10*(.2/(time-release_time))*Math.cos(time*10));
           setUniform('1f', 'uroffset_y', offset_y/10*(.2/(time-release_time))*Math.cos(time*10));
-          if(time-release_time <= 2){
+          if(time-release_time <= 2.5){
             setUniform('1f', 'uoffset_x', offset_x/1000*(widgetValue[5]*100/(time-release_time))*Math.pow(-1.,p));
             setUniform('1f', 'uoffset_y', offset_y/1000*(widgetValue[5]*100/(time-release_time))*Math.pow(-1.,p));
           
