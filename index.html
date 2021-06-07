@@ -132,12 +132,14 @@ setTimeout("document.getElementById('loader').style.display='none'",3000);
       nor = nor * uInvMatrix;
 
       //###### drag ##########
-      float eps=40.;
+      //float z=pos.z<=0.?1.:0.;
+      float eps=10.;
       float eps2=5.;
       float offset = min(.5,uoffset_x * uoffset_y / (distance(uoriginal_x * eps ,pos.x * eps )+distance(uoriginal_y * eps , pos.y * eps)));
-      float offsetx = min(5.5,uoffset_x  / (distance(uoriginal_x * eps ,pos.x * eps )+distance(uoriginal_y * eps , pos.y * eps)));
-      float offsety = min(5.5,uoffset_y / (distance(uoriginal_x * eps ,pos.x * eps )+distance(uoriginal_y * eps , pos.y * eps)));
-      if(!(uoffset_x==0. && uoffset_y==0.) && udraggable!=0. && pos.z<=0.){
+      float offsetx = min(50.5,uoffset_x /2. / (distance(uoriginal_x * eps ,pos.x * eps )+distance(uoriginal_y * eps , pos.y * eps)+distance(0.5, -pos.z)));
+      float offsety = min(50.5,uoffset_y /2. / (distance(uoriginal_x * eps ,pos.x * eps )+distance(uoriginal_y * eps , pos.y * eps)+distance(0.5, -pos.z)));
+
+      if(!(uoffset_x==0. && uoffset_y==0.) && udraggable!=0. ){
           pos.x+=offsetx;
           pos.y+=offsety;
           //pos.z-=offsetx+offsety;
