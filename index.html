@@ -133,7 +133,7 @@ setTimeout("document.getElementById('loader').style.display='none'",3000);
 
       //###### drag ##########
       //float z=pos.z<=0.?1.:0.;
-      float eps=10.;
+      float eps=5.;
       float eps2=5.;
       float offset = min(.5,uoffset_x * uoffset_y / (distance(uoriginal_x * eps ,pos.x * eps )+distance(uoriginal_y * eps , pos.y * eps)));
       float offsetx = min(50.5,uoffset_x /2. / (distance(uoriginal_x * eps ,pos.x * eps )+distance(uoriginal_y * eps , pos.y * eps)+distance(0.5, -pos.z)));
@@ -1307,7 +1307,7 @@ function animate(gl) {
         release_sw=0;
       }
       else if(release_sw==0 ){
-          let p =Math.ceil(time*100%10);
+          let p =Math.ceil(time*100);
           setUniform('1f', 'uroffset_x', offset_x/10*(.2/(time-release_time))*Math.cos(time*10));
           setUniform('1f', 'uroffset_y', offset_y/10*(.2/(time-release_time))*Math.cos(time*10));
           //if(time-release_time <= 2.5){
