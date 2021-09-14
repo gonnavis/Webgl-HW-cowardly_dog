@@ -139,7 +139,7 @@ function gl_start(canvas, vertexShader, fragmentShader) {           // START WEB
          if (gl.startTime === undefined)                                            // First time through,
             gl.startTime = Date.now();                                              //    record the start time.
          animate(gl);
-      }, 30);
+      }, 1000/60);
 
    }, 100); // Wait 100 milliseconds after page has loaded before starting WebGL.
 }
