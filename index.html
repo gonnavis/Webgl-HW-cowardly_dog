@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-  <title>rubber toy courage the cowardly dog/</title>
+  <title>Digital Rubber Toy</title>
   <meta charset="utf-8">
   <meta name="google-site-verification" content="6TPxgYdY4M6qRKogiNNhxmc60EOCZCd6AFqc7VJzw5A" />
   <meta name="Keywords" content="rubber toy, courage the cowardly dog" />
@@ -36,14 +36,21 @@
   </ul>
 
 </nav> -->
-<div class="main_display">
-  <div class="loader" id="loader"></div>
+<!-- <div class="main_display"> -->
+  
   <div class="item-1">
-    
+    <div class="loader" id="loader"></div>
     <canvas id="canvas1" width=800 height=800></canvas>
     
   </div>
-  <div class="item-2">
+  <div class="instruction">
+    <h3>Drag the Toy</h3>
+    <h3>Using 'A' and 'D' to rotate the toy</h3>
+    <h3>Using bar to adjust the elasticity</h3>
+    
+  </div>
+  
+  <!-- <div class="item-2">
     
       <div class="container">
         <div class="media-object">
@@ -66,8 +73,8 @@
       </div>
   
     
-  </div>
-</div>
+  </div> -->
+<!-- </div> -->
 
 
 <script>
@@ -247,6 +254,9 @@ function animate(gl) {
    // DRAW CONTROL WIDGETS
    setUniform('1f', 'udraggable', 0);
    setUniform('1f', 'ubounceable', 0);
+   if(time>7){
+    document.querySelector('.instruction').classList.add('hidden');
+   }
    for (let n = 0 ; n < widgetValue.length ; n++) {
    
       let p = widgetPos[n];
