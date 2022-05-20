@@ -1,4 +1,4 @@
-# rubbertoy_courage_the_cowardly_dog
+# Computer Graphic Course Assignment
 
 webGL elastic rubber toy
 
