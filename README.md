@@ -2,10 +2,7 @@
 
 webGL elastic rubber toy
 
-Demo:
-
-https://tcm390.github.io/rubbertoy_courage_the_cowardly_dog/
-
+Demo: https://rubbertoy.netlify.app/
 
 sound source: 
 
